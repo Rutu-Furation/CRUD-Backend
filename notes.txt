@@ -1,0 +1,189 @@
+const dns = require('dns');
+const mongoose = require("mongoose");
+const { MongoClient } = require("mongodb");
+const fs = require("fs");
+const path = require("path");
+const cron = require("node-cron")
+
+// Define your MongoDB schema using Mongoose
+const dataSchema = new mongoose.Schema({
+  // Define your data fields
+  field1: String,
+  field2: Number,
+});
+
+// Create a model based on the schema
+const DataModel = mongoose.model("Data", dataSchema);
+
+// Local data storage path
+const localDataFilePath = path.join(__dirname, "localData.json");
+
+// Function to store data locally
+const storeDataLocally = (data) => {
+  fs.writeFileSync(localDataFilePath, JSON.stringify(data));
+};
+
+// Function to load locally stored data
+const loadLocalData = () => {
+  if (fs.existsSync(localDataFilePath)) {
+    const data = fs.readFileSync(localDataFilePath, "utf8");
+    return JSON.parse(data);
+  }
+  return [];
+};
+
+// Function to synchronize data with the remote server
+const synchronizeData = async () => {
+  try {
+    const localData = loadLocalData();
+
+    // Connect to the remote MongoDB server
+    const remoteClient = await MongoClient.connect(
+      "mongodb+srv://sonu:sonu@atlascluster.qemmjrn.mongodb.net/furation_db?retryWrites=true&w=majority"
+    );
+    const remoteDB = remoteClient.db("your-db-name");
+    const remoteCollection = remoteDB.collection("your-collection-name");
+
+    // Iterate over local data and push it to the remote server
+    for (const item of localData) {
+      await remoteCollection.insertOne(item);
+    }
+
+    // Clear the local data after successful synchronization
+    storeDataLocally([]);
+    console.log("Data synchronization completed.");
+
+    // Close the remote MongoDB connection
+    remoteClient.close();
+  } catch (error) {
+    console.error("Error synchronizing data:", error);
+  }
+};
+
+// Function to perform periodic data synchronization
+const scheduleDataSync = () => {
+  // Schedule the synchronization using a library like node-cron
+  // Here, we schedule it to run every 5 minutes
+  cron.schedule("*/5 * * * *", synchronizeData);
+};
+
+// Function to check network connectivity
+const checkNetworkConnectivity =async () => {
+  // Implement your network connectivity check logic here
+  // Return true if the network is available, false otherwise
+   const reliableServer = 'www.google.com'; // Replace with a reliable server of your choice
+
+  return new Promise((resolve) => {
+    dns.resolve(reliableServer, (error) => {
+      if (error) {
+        resolve(false); // Resolve with false if there is an error
+      } else {
+        resolve(true); // Resolve with true if the domain resolves successfully
+      }
+    });
+  });
+};
+
+// Example usage
+const main = async () => {
+  try {
+    // Connect to the local MongoDB server
+    await mongoose.connect("mongodb+srv://sonu:sonu@atlascluster.qemmjrn.mongodb.net/", {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("Connected to local MongoDB server.");
+
+    // Check network connectivity
+    const isNetworkAvailable = checkNetworkConnectivity();
+
+    if (isNetworkAvailable) {
+      // Synchronize data with the remote server
+      await synchronizeData();
+    } else {
+      // Network is disconnected, store data locally
+      const newData = [
+        { field1: "Value 1", field2: 123 },
+        { field1: "Value 2", field2: 456 },
+        // Add your data items here
+      ];
+
+      // Store the data locally
+      storeDataLocally(newData);
+      console.log("Data stored locally.");
+    }
+
+    // Schedule periodic data synchronization
+    scheduleDataSync();
+  } catch (error) {
+    console.error("Error:", error);
+  }
+};
+
+// Run the main function
+main();
+
+
+================================================
+check connectivity logic
+
+// ==================================================
+
+// const express = require('express');
+// const http = require('http');
+
+// const app = express();
+
+// app.get('/check-connectivity', (req, res) => {
+//   const reliableServer = 'www.google.com'; // Replace with a reliable server of your choice
+//   http
+//     .get(`http://${reliableServer}`, (response) => {
+//       res.status(200).json({ connected: true });
+//     })
+//     .on('error', () => {
+//       res.status(200).json({ connected: false });
+//     });
+// });
+
+// const port = 3000; // Choose a port number of your choice
+
+// app.listen(port, () => {
+//   console.log(`Server is running on port ${port}`);
+// });
+// =====================================================================
+
+=================================================
+
+
+
+
+
+
+
+
+
+===========================
+// const dns = require('dns');
+// const checkNetworkConnectivity = async () => {
+//   const reliableServer = 'www.google.com';
+//   return new Promise((resolve) => {
+//     dns.resolve('www.google.com', (error) => {
+//       if (error) {
+//         resolve(false);
+//       } else {
+//         resolve(true);
+//       }
+//     });
+//   });
+// };
+
+// Example usage
+// checkNetworkConnectivity()
+//   .then((isNetworkAvailable) => {
+//     console.log('Network connectivity:', isNetworkAvailable);
+//   })
+//   .catch((error) => {
+//     console.error('Error checking network connectivity:', error);
+//   });
+
+==============================
